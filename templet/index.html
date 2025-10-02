@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Packet Sniffer</title>
+    <style>
+        :root {
+            --bg: #0f1220;
+            --panel: #151a2b;
+            --accent: #6cf08e;
+            --accent-2: #58a6ff;
+            --text: #e6edf3;
+            --muted: #9aa7b2;
+            --danger: #ff6b6b;
+        }
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Arial, "Noto Sans", sans-serif; background-color: var(--bg); color: var(--text); margin:0; }
+        header { padding: 24px 16px; text-align: center; background: linear-gradient(180deg, rgba(108,240,142,0.08), rgba(88,166,255,0.04)); border-bottom: 1px solid #20263d; }
+        h1 { margin: 0; font-weight: 700; letter-spacing: 0.3px; }
+        .container { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+        .controls { display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom:16px; }
+        button { background: var(--panel); color: var(--text); border: 1px solid #27314f; padding: 10px 16px; border-radius: 8px; cursor: pointer; transition: .2s ease; }
+        button:hover { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,240,142,0.15); }
+        #startBtn { color:#0f1; border-color:#1f5; }
+        #stopBtn { color:#f77; border-color:#a33; }
+        #status { color: var(--muted); }
+        .card { background: var(--panel); border: 1px solid #20263d; border-radius: 12px; padding: 8px 0; }
+        #packets { list-style: none; margin: 0; padding: 0; }
+        #packets li { display:flex; gap:8px; align-items:center; border-bottom: 1px solid #20263d; padding: 12px 16px; }
+        #packets li:last-child { border-bottom: none; }
+        .dot { width:10px; height:10px; border-radius:50%; background: var(--accent); display:inline-block; }
+        .ip { color: var(--accent-2); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+        .len { color: var(--muted); }
+        .time { color: var(--accent); font-size: 12px; }
+        .meta { margin-left:auto; display:flex; gap:12px; align-items:center; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🚀 Live Network Packet Feed</h1>
+    </header>
+    <div class="container">
+        <div class="controls">
+            <button id="startBtn">Start</button>
+            <button id="stopBtn">Stop</button>
+            <span id="status">Status: idle</span>
+        </div>
+        <div class="card">
+            <ul id="packets">
+                <li><span class="dot"></span><span class="len">Waiting for packet data...</span></li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            // Connect to the WebSocket server (auto-detects protocol/host/port)
+            var socket = io();
+
+            // Get UI elements
+            const packetList = document.getElementById('packets');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const statusEl = document.getElementById('status');
+
+            // This function is called when we receive a 'new_packet' event
+            socket.on('new_packet', function(data) {
+                console.log(data); // For debugging in browser console
+
+                // Create a new list item for the packet
+                const newItem = document.createElement('li');
+                newItem.innerHTML = `
+                    <span class="dot"></span>
+                    <span class="ip">${data.source_ip}</span>
+                    <span class="len">→</span>
+                    <span class="ip">${data.dest_ip}</span>
+                    <span class="meta">
+                        <span class="len">${data.length} bytes</span>
+                        <span class="time">${data.timestamp || ''}</span>
+                    </span>
+                `;
+
+                // Add the new packet to the top of the list
+                packetList.prepend(newItem);
+                
+                // Optional: Limit the number of displayed packets to prevent the page from getting too long
+                if (packetList.children.length > 100) {
+                    packetList.removeChild(packetList.lastChild);
+                }
+            });
+
+            // Listen for sniffer status updates
+            socket.on('sniffer_status', function(data) {
+                statusEl.textContent = `Status: ${data.status} @ ${data.timestamp || ''}`;
+            });
+
+            // Buttons
+            startBtn.addEventListener('click', () => {
+                socket.emit('start_sniff');
+            });
+            stopBtn.addEventListener('click', () => {
+                socket.emit('stop_sniff');
+            });
+
+            // Log connection status
+            socket.on('connect', function() {
+                console.log('Successfully connected to the server!');
+                statusEl.textContent = 'Status: connected';
+            });
+        });
+    </script>
+</body>
+</html>
